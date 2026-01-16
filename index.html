@@ -84,6 +84,20 @@
                 <label>Murs et fenetres</label>
                 <ul id="structuresList" class="items"></ul>
               </div>
+              <div class="field">
+                <label>Modifier le mur selectionne</label>
+                <div class="row">
+                  <button id="wallLeft" class="ghost">Gauche</button>
+                  <button id="wallRight" class="ghost">Droite</button>
+                  <button id="wallUp" class="ghost">Avant</button>
+                  <button id="wallDown" class="ghost">Arriere</button>
+                </div>
+                <div class="row">
+                  <button id="wallRotate" class="ghost">Tourner</button>
+                  <button id="wallGrow" class="ghost">+ Longueur</button>
+                  <button id="wallShrink" class="ghost">- Longueur</button>
+                </div>
+              </div>
             </div>
             <div class="step" data-step="4">
               <div class="step-header">
@@ -117,6 +131,7 @@
         </section>
       </main>
     </div>
+    <script src="config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

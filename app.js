@@ -1,28 +1,7 @@
 const canvas = document.getElementById("scene");
 const ctx = canvas.getContext("2d");
 
-const containerSizes = [
-  {
-    id: "20ft",
-    label: "20 pieds - 6.05 m x 2.43 m",
-    lengthUnits: 6,
-    widthUnits: 5,
-    heightUnits: 5,
-    lengthMeters: 6.05,
-    widthMeters: 2.43,
-    heightMeters: 2.59
-  },
-  {
-    id: "40ft",
-    label: "40 pieds - 12.19 m x 2.43 m",
-    lengthUnits: 12,
-    widthUnits: 5,
-    heightUnits: 5,
-    lengthMeters: 12.19,
-    widthMeters: 2.43,
-    heightMeters: 2.59
-  }
-];
+const { containerSizes, catalog, wallOptions, windowOptions, insulationOptions, wallDepth } = CONFIG;
 
 const grid = {
   length: containerSizes[1].lengthUnits,
@@ -38,54 +17,16 @@ const origin = {
   y: 180
 };
 
-const catalog = [
-  { id: "desk", name: "Bureau compact", w: 3, d: 2, h: 2, price: 320, color: "#c9a27c" },
-  { id: "sofa", name: "Canape droit", w: 4, d: 2, h: 2, price: 680, color: "#9c6b5a" },
-  { id: "shelf", name: "Etagere metal", w: 2, d: 1, h: 3, price: 210, color: "#8b8f95" },
-  { id: "bed", name: "Lit simple", w: 4, d: 2, h: 2, price: 520, color: "#9e8b6a" },
-  { id: "kitchen", name: "Bloc kitchenette", w: 4, d: 2, h: 3, price: 940, color: "#7f6d5a" },
-  { id: "light", name: "Suspension", w: 1, d: 1, h: 1, price: 95, color: "#e7c36a" }
-];
-
-const wallOptions = [
-  { id: "steel", name: "Mur acier plein", w: 4, price: 1200, color: "#c3b7aa", alpha: 0.6 },
-  { id: "glass", name: "Mur vitrine", w: 4, price: 1600, color: "#d7c7b4", alpha: 0.5 }
-];
-
-const windowOptions = [
-  { id: "fixed", name: "Fenetre fixe", w: 2, h: 2, z: 1.5, price: 350, color: "rgba(140,180,210,0.5)" },
-  { id: "bay", name: "Baie vitree", w: 4, h: 3, z: 1, price: 900, color: "rgba(120,170,200,0.45)" }
-];
-
-const insulationOptions = [
-  {
-    id: "none",
-    label: "Sans isolation",
-    thickness: 0,
-    color: "rgba(184,171,156,0.15)"
-  },
-  {
-    id: "foam",
-    label: "Isolation mousse (0.5u)",
-    thickness: 0.5,
-    color: "rgba(231,195,106,0.35)"
-  },
-  {
-    id: "panel",
-    label: "Isolation panneaux (1u)",
-    thickness: 1,
-    color: "rgba(156,132,108,0.35)"
-  }
-];
 
 const state = {
   items: [],
   walls: [],
   windows: [],
-  insulation: insulationOptions[1]
+  insulation: insulationOptions[1],
+  selectedWallIndex: null,
+  editingWalls: false
 };
 
-const wallDepth = 0.4;
 
 const totalPriceEl = document.getElementById("totalPrice");
 const catalogEl = document.getElementById("catalog");
@@ -104,6 +45,13 @@ const windowOptionEl = document.getElementById("windowOption");
 const addWallEl = document.getElementById("addWall");
 const addWindowEl = document.getElementById("addWindow");
 const structuresListEl = document.getElementById("structuresList");
+const wallLeftEl = document.getElementById("wallLeft");
+const wallRightEl = document.getElementById("wallRight");
+const wallUpEl = document.getElementById("wallUp");
+const wallDownEl = document.getElementById("wallDown");
+const wallRotateEl = document.getElementById("wallRotate");
+const wallGrowEl = document.getElementById("wallGrow");
+const wallShrinkEl = document.getElementById("wallShrink");
 
 function isoPoint(x, y, z = 0) {
   return {
@@ -273,9 +221,10 @@ function drawItemBox(item) {
 }
 
 function drawWallPanel(panel) {
+  const { w, d } = getWallDimensions(panel);
   ctx.save();
   ctx.globalAlpha = panel.alpha ?? 0.6;
-  drawItemBox(panel);
+  drawItemBox({ ...panel, w, d });
   ctx.restore();
 }
 
@@ -304,10 +253,17 @@ function render() {
   });
   drawGridLines(L, W);
   drawPolygon(floor, null, "#d6cdbd");
+  state.items.forEach(drawItemBox);
   state.walls.forEach(drawWallPanel);
   state.windows.forEach(drawWindowPanel);
-  state.items.forEach(drawItemBox);
   drawPolygon(roof, null, "#d6cdbd");
+}
+
+function getWallDimensions(wall) {
+  if (wall.orientation === "y") {
+    return { w: wallDepth, d: wall.length };
+  }
+  return { w: wall.length, d: wallDepth };
 }
 
 function setStep(step) {
@@ -318,6 +274,25 @@ function setStep(step) {
   });
   prevStepEl.disabled = step === 1;
   nextStepEl.textContent = step === 4 ? "Exporter devis" : "Suivant";
+}
+
+function updateWallEditState() {
+  const controls = [
+    wallLeftEl,
+    wallRightEl,
+    wallUpEl,
+    wallDownEl,
+    wallRotateEl,
+    wallGrowEl,
+    wallShrinkEl
+  ];
+  controls.forEach((btn) => {
+    btn.disabled = !state.editingWalls;
+  });
+  if (!state.editingWalls) {
+    state.selectedWallIndex = null;
+  }
+  renderStructuresList();
 }
 
 function updateDimensions(size) {
@@ -346,12 +321,17 @@ function renderItemsList() {
     details.textContent = `${item.w}u x ${item.d}u x ${item.h}u`;
     meta.appendChild(name);
     meta.appendChild(details);
+
+    const actions = document.createElement("div");
+    actions.className = "item-actions";
     const price = document.createElement("span");
     price.textContent = `${item.price} EUR`;
 
     const remove = document.createElement("button");
-    remove.className = "remove";
-    remove.textContent = "Retirer";
+    remove.className = "remove-x";
+    remove.type = "button";
+    remove.setAttribute("aria-label", "Retirer");
+    remove.textContent = "x";
     remove.addEventListener("click", () => {
       state.items.splice(index, 1);
       render();
@@ -359,8 +339,9 @@ function renderItemsList() {
       renderItemsList();
     });
 
+    actions.appendChild(price);
     li.appendChild(meta);
-    li.appendChild(price);
+    li.appendChild(actions);
     li.appendChild(remove);
     itemsListEl.appendChild(li);
   });
@@ -374,23 +355,40 @@ function renderStructuresList() {
   ];
   merged.forEach((item) => {
     const li = document.createElement("li");
+    if (item.kind === "wall" && item.index === state.selectedWallIndex && state.editingWalls) {
+      li.classList.add("is-selected");
+    }
     const meta = document.createElement("div");
     meta.className = "item-meta";
     const name = document.createElement("strong");
     name.textContent = item.kind === "wall" ? `Mur: ${item.name}` : `Fenetre: ${item.name}`;
     const details = document.createElement("span");
-    details.textContent = `${item.w}u x ${item.h}u`;
+    if (item.kind === "wall") {
+      details.textContent = `${item.length}u (${item.orientation === "y" ? "vertical" : "horizontal"})`;
+    } else {
+      details.textContent = `${item.w}u x ${item.h}u`;
+    }
     meta.appendChild(name);
     meta.appendChild(details);
+
+    const actions = document.createElement("div");
+    actions.className = "item-actions";
     const price = document.createElement("span");
     price.textContent = `${item.price} EUR`;
 
     const remove = document.createElement("button");
-    remove.className = "remove";
-    remove.textContent = "Retirer";
+    remove.className = "remove-x";
+    remove.type = "button";
+    remove.setAttribute("aria-label", "Retirer");
+    remove.textContent = "x";
     remove.addEventListener("click", () => {
       if (item.kind === "wall") {
         state.walls.splice(item.index, 1);
+        if (state.selectedWallIndex === item.index) {
+          state.selectedWallIndex = null;
+        } else if (state.selectedWallIndex > item.index) {
+          state.selectedWallIndex -= 1;
+        }
       } else {
         state.windows.splice(item.index, 1);
       }
@@ -399,12 +397,33 @@ function renderStructuresList() {
       renderStructuresList();
     });
 
+    if (item.kind === "wall") {
+      const edit = document.createElement("button");
+      edit.className = "edit-wall";
+      edit.type = "button";
+      edit.textContent =
+        state.editingWalls && item.index === state.selectedWallIndex ? "Terminer" : "Modifier";
+      edit.addEventListener("click", () => {
+        if (state.editingWalls && state.selectedWallIndex === item.index) {
+          state.editingWalls = false;
+          state.selectedWallIndex = null;
+        } else {
+          state.editingWalls = true;
+          state.selectedWallIndex = item.index;
+        }
+        updateWallEditState();
+      });
+      actions.appendChild(edit);
+    }
+
+    actions.appendChild(price);
     li.appendChild(meta);
-    li.appendChild(price);
+    li.appendChild(actions);
     li.appendChild(remove);
     structuresListEl.appendChild(li);
   });
 }
+
 
 function isSpaceFree(x, y, w, d) {
   const t = state.insulation.thickness;
@@ -453,6 +472,32 @@ function findStructureSpot(list, w) {
   return null;
 }
 
+function isWallPositionFree(x, y, length, orientation, ignoreIndex) {
+  const t = state.insulation.thickness;
+  const { w, d } = orientation === "y" ? { w: wallDepth, d: length } : { w: length, d: wallDepth };
+  if (x < t || y < t || x + w > grid.length - t || y + d > grid.width - t) {
+    return false;
+  }
+  return !state.walls.some((wall, index) => {
+    if (index === ignoreIndex) return false;
+    const other = getWallDimensions(wall);
+    const xOverlap = x < wall.x + other.w && x + w > wall.x;
+    const yOverlap = y < wall.y + other.d && y + d > wall.y;
+    return xOverlap && yOverlap;
+  });
+}
+
+function findWallSpot(length, orientation, y) {
+  const { w } = orientation === "y" ? { w: wallDepth } : { w: length };
+  const t = state.insulation.thickness;
+  for (let x = t; x <= grid.length - w - t; x += 1) {
+    if (isWallPositionFree(x, y, length, orientation, null)) {
+      return { x };
+    }
+  }
+  return null;
+}
+
 function addItem(itemId) {
   const item = catalog.find((entry) => entry.id === itemId);
   if (!item) return;
@@ -470,18 +515,18 @@ function addItem(itemId) {
 function addWall(optionId) {
   const option = wallOptions.find((entry) => entry.id === optionId);
   if (!option) return;
-  const spot = findStructureSpot(state.walls, option.w);
+  const t = state.insulation.thickness;
+  const y = Math.max(t, grid.width - t - wallDepth);
+  const spot = findWallSpot(option.w, "x", y);
   if (!spot) {
     alert("Plus de place disponible pour ce mur.");
     return;
   }
-  const t = state.insulation.thickness;
-  const y = Math.max(t, grid.width - t - wallDepth);
   state.walls.push({
     ...spot,
-    w: option.w,
-    d: wallDepth,
     y,
+    length: option.w,
+    orientation: "x",
     h: grid.height,
     price: option.price,
     name: option.name,
@@ -514,6 +559,29 @@ function addWindow(optionId) {
     name: option.name,
     color: option.color
   });
+  render();
+  updateTotal();
+  renderStructuresList();
+}
+
+function updateSelectedWall(updater) {
+  const index = state.selectedWallIndex;
+  if (!state.editingWalls) {
+    alert("Active d'abord le mode modification.");
+    return;
+  }
+  if (index === null || index === undefined) {
+    alert("Selectionne d'abord un mur.");
+    return;
+  }
+  const current = state.walls[index];
+  const updated = { ...current };
+  updater(updated);
+  if (!isWallPositionFree(updated.x, updated.y, updated.length, updated.orientation, index)) {
+    alert("Placement impossible pour ce mur.");
+    return;
+  }
+  state.walls[index] = updated;
   render();
   updateTotal();
   renderStructuresList();
@@ -596,11 +664,14 @@ function applyContainerSize(sizeId) {
   state.items = [];
   state.walls = [];
   state.windows = [];
+  state.selectedWallIndex = null;
+  state.editingWalls = false;
   updateDimensions(size);
   render();
   updateTotal();
   renderItemsList();
   renderStructuresList();
+  updateWallEditState();
 }
 
 addItemEl.addEventListener("click", () => addItem(catalogEl.value));
@@ -616,10 +687,13 @@ insulationEl.addEventListener("change", () => {
   state.items = [];
   state.walls = [];
   state.windows = [];
+  state.selectedWallIndex = null;
+  state.editingWalls = false;
   render();
   updateTotal();
   renderItemsList();
   renderStructuresList();
+  updateWallEditState();
 });
 prevStepEl.addEventListener("click", () => {
   if (state.currentStep > 1) {
@@ -634,6 +708,42 @@ nextStepEl.addEventListener("click", () => {
   exportQuote();
 });
 
+wallLeftEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.x -= 1;
+  })
+);
+wallRightEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.x += 1;
+  })
+);
+wallUpEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.y -= 1;
+  })
+);
+wallDownEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.y += 1;
+  })
+);
+wallRotateEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.orientation = wall.orientation === "y" ? "x" : "y";
+  })
+);
+wallGrowEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.length += 1;
+  })
+);
+wallShrinkEl.addEventListener("click", () =>
+  updateSelectedWall((wall) => {
+    wall.length = Math.max(1, wall.length - 1);
+  })
+);
+
 setupCatalog();
 setupContainerSizes();
 setupInsulationOptions();
@@ -644,3 +754,4 @@ setStep(1);
 render();
 updateTotal();
 renderStructuresList();
+updateWallEditState();
