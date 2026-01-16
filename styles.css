@@ -155,6 +155,10 @@ label {
   display: none;
 }
 
+.is-hidden {
+  display: none;
+}
+
 .step-header {
   display: flex;
   align-items: center;
@@ -347,6 +351,10 @@ canvas {
   border-radius: 18px;
   background: #f8f6f1;
   border: 1px solid var(--line);
+}
+
+#threeStage {
+  height: 520px;
 }
 
 .legend {

@@ -1,5 +1,5 @@
 const canvas = document.getElementById("scene");
-const ctx = canvas.getContext("2d");
+const ctx = canvas ? canvas.getContext("2d") : null;
 
 const { containerSizes, catalog, wallOptions, windowOptions, insulationOptions, wallDepth } = CONFIG;
 
@@ -13,7 +13,7 @@ const grid = {
 };
 
 const origin = {
-  x: canvas.width / 2,
+  x: canvas ? canvas.width / 2 : 450,
   y: 180
 };
 
@@ -24,7 +24,8 @@ const state = {
   windows: [],
   insulation: insulationOptions[1],
   selectedWallIndex: null,
-  editingWalls: false
+  editingWalls: false,
+  containerSizeId: containerSizes[1]?.id || containerSizes[0]?.id
 };
 
 
@@ -61,6 +62,7 @@ function isoPoint(x, y, z = 0) {
 }
 
 function drawPolygon(points, fill, stroke) {
+  if (!ctx) return;
   ctx.beginPath();
   points.forEach((pt, index) => {
     if (index === 0) {
@@ -81,6 +83,9 @@ function drawPolygon(points, fill, stroke) {
 }
 
 function drawContainer() {
+  if (!ctx) {
+    return { edges: [], floor: [], roof: [], L: grid.length, W: grid.width };
+  }
   const L = grid.length;
   const W = grid.width;
   const H = grid.height;
@@ -115,6 +120,7 @@ function drawContainer() {
 }
 
 function drawGridLines(L, W) {
+  if (!ctx) return;
   ctx.lineWidth = 0.8;
   ctx.strokeStyle = "rgba(190,180,165,0.45)";
   for (let x = 1; x < L; x += 1) {
@@ -136,6 +142,7 @@ function drawGridLines(L, W) {
 }
 
 function drawInsulation() {
+  if (!ctx) return;
   const thickness = state.insulation.thickness;
   if (!thickness) return;
   const L = grid.length;
@@ -221,6 +228,7 @@ function drawItemBox(item) {
 }
 
 function drawWallPanel(panel) {
+  if (!ctx) return;
   const { w, d } = getWallDimensions(panel);
   ctx.save();
   ctx.globalAlpha = panel.alpha ?? 0.6;
@@ -229,6 +237,7 @@ function drawWallPanel(panel) {
 }
 
 function drawWindowPanel(panel) {
+  if (!ctx) return;
   const { x, w, h, z, color, y, d } = panel;
   const faceY = y + d;
   const points = [
@@ -241,6 +250,7 @@ function drawWindowPanel(panel) {
 }
 
 function render() {
+  if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const { edges, floor, roof, L, W } = drawContainer();
   ctx.lineWidth = 1.3;
@@ -293,6 +303,24 @@ function updateWallEditState() {
     state.selectedWallIndex = null;
   }
   renderStructuresList();
+  sync3d();
+}
+
+function sync3d() {
+  const payload = {
+    containerSizeId: state.containerSizeId,
+    items: state.items,
+    walls: state.walls,
+    windows: state.windows,
+    insulation: state.insulation,
+    selectedWallIndex: state.selectedWallIndex,
+    editingWalls: state.editingWalls
+  };
+  if (window.threeApi && typeof window.threeApi.sync === "function") {
+    window.threeApi.sync(payload);
+  } else {
+    window.pendingThreeSync = payload;
+  }
 }
 
 function updateDimensions(size) {
@@ -337,6 +365,7 @@ function renderItemsList() {
       render();
       updateTotal();
       renderItemsList();
+      sync3d();
     });
 
     actions.appendChild(price);
@@ -395,6 +424,7 @@ function renderStructuresList() {
       render();
       updateTotal();
       renderStructuresList();
+      sync3d();
     });
 
     if (item.kind === "wall") {
@@ -510,6 +540,7 @@ function addItem(itemId) {
   render();
   updateTotal();
   renderItemsList();
+  sync3d();
 }
 
 function addWall(optionId) {
@@ -536,6 +567,7 @@ function addWall(optionId) {
   render();
   updateTotal();
   renderStructuresList();
+  sync3d();
 }
 
 function addWindow(optionId) {
@@ -562,6 +594,7 @@ function addWindow(optionId) {
   render();
   updateTotal();
   renderStructuresList();
+  sync3d();
 }
 
 function updateSelectedWall(updater) {
@@ -585,6 +618,7 @@ function updateSelectedWall(updater) {
   render();
   updateTotal();
   renderStructuresList();
+  sync3d();
 }
 
 function exportQuote() {
@@ -651,13 +685,18 @@ function setupContainerSizes() {
     option.textContent = size.label;
     containerSizeEl.appendChild(option);
   });
-  containerSizeEl.value = containerSizes[1].id;
-  updateDimensions(containerSizes[1]);
+  const defaultSize = containerSizes[1] || containerSizes[0];
+  if (defaultSize) {
+    containerSizeEl.value = defaultSize.id;
+    state.containerSizeId = defaultSize.id;
+    updateDimensions(defaultSize);
+  }
 }
 
 function applyContainerSize(sizeId) {
   const size = containerSizes.find((entry) => entry.id === sizeId);
   if (!size) return;
+  state.containerSizeId = size.id;
   grid.length = size.lengthUnits;
   grid.width = size.widthUnits;
   grid.height = size.heightUnits;
@@ -672,6 +711,7 @@ function applyContainerSize(sizeId) {
   renderItemsList();
   renderStructuresList();
   updateWallEditState();
+  sync3d();
 }
 
 addItemEl.addEventListener("click", () => addItem(catalogEl.value));
@@ -694,6 +734,7 @@ insulationEl.addEventListener("change", () => {
   renderItemsList();
   renderStructuresList();
   updateWallEditState();
+  sync3d();
 });
 prevStepEl.addEventListener("click", () => {
   if (state.currentStep > 1) {
@@ -706,6 +747,19 @@ nextStepEl.addEventListener("click", () => {
     return;
   }
   exportQuote();
+});
+
+window.addEventListener("wall-moved", (event) => {
+  const detail = event.detail || {};
+  const index = detail.index;
+  if (!Number.isFinite(index)) return;
+  const wall = state.walls[index];
+  if (!wall) return;
+  wall.x = Math.round(detail.x);
+  wall.y = Math.round(detail.y);
+  render();
+  renderStructuresList();
+  sync3d();
 });
 
 wallLeftEl.addEventListener("click", () =>
@@ -755,3 +809,4 @@ render();
 updateTotal();
 renderStructuresList();
 updateWallEditState();
+sync3d();

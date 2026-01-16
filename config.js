@@ -59,3 +59,5 @@ const CONFIG = {
   ],
   wallDepth: 0.4
 };
+
+window.CONFIG = CONFIG;

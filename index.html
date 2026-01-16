@@ -123,15 +123,23 @@
           </div>
         </section>
         <section class="stage">
-          <canvas id="scene" width="900" height="620"></canvas>
+          <canvas id="threeStage"></canvas>
           <div class="legend">
             <span class="dot">*</span>
-            <span>Vue isometrique simplifiee</span>
+            <span>Vue 3D</span>
           </div>
         </section>
       </main>
     </div>
     <script src="config.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
     <script src="app.js"></script>
+    <script type="module" src="three.js"></script>
   </body>
 </html>
