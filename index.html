@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configurateur conteneur - Prototype</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">CT</span>
+          <div>
+            <div class="brand-title">Container Studio</div>
+            <div class="brand-sub">Prototype configurateur</div>
+          </div>
+        </div>
+        <div class="quote">
+          <div class="quote-label">Devis estimatif</div>
+          <div id="totalPrice" class="quote-price">0 EUR</div>
+        </div>
+      </header>
+      <main class="layout">
+        <section class="panel">
+          <h1>Composer votre conteneur</h1>
+          <p class="muted">
+            Prototype de configuration. Les produits sont des exemples locaux
+            (pas l'API Leroy Merlin).
+          </p>
+          <div class="steps">
+            <div class="step" data-step="1">
+            <div class="step-header">
+              <span class="step-pill">Etape 1</span>
+              <span class="step-title">Taille du conteneur</span>
+            </div>
+            <div class="field">
+              <label for="containerSize">Taille conteneur</label>
+              <div class="row">
+                <select id="containerSize"></select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Dimensions conteneur</label>
+              <div class="dims">
+                <div><span>Longueur</span><strong id="lengthDim">12u</strong></div>
+                <div><span>Largeur</span><strong id="widthDim">5u</strong></div>
+                <div><span>Hauteur</span><strong id="heightDim">5u</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="step" data-step="2">
+            <div class="step-header">
+              <span class="step-pill">Etape 2</span>
+              <span class="step-title">Isolation</span>
+              </div>
+              <div class="field">
+                <label for="insulation">Isolation</label>
+                <div class="row">
+                  <select id="insulation"></select>
+                </div>
+              </div>
+            </div>
+            <div class="step" data-step="3">
+              <div class="step-header">
+                <span class="step-pill">Etape 3</span>
+                <span class="step-title">Murs et fenetres</span>
+              </div>
+              <div class="field">
+                <label for="wallOption">Ajouter un mur</label>
+                <div class="row">
+                  <select id="wallOption"></select>
+                  <button id="addWall" class="primary">Ajouter</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="windowOption">Ajouter une fenetre</label>
+                <div class="row">
+                  <select id="windowOption"></select>
+                  <button id="addWindow" class="primary">Ajouter</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Murs et fenetres</label>
+                <ul id="structuresList" class="items"></ul>
+              </div>
+            </div>
+            <div class="step" data-step="4">
+              <div class="step-header">
+                <span class="step-pill">Etape 4</span>
+                <span class="step-title">Ajouter des elements</span>
+              </div>
+              <div class="field">
+                <label for="catalog">Ajouter un element</label>
+                <div class="row">
+                  <select id="catalog"></select>
+                  <button id="addItem" class="primary">Ajouter</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Elements du projet</label>
+                <ul id="itemsList" class="items"></ul>
+              </div>
+            </div>
+        </div>
+          <div class="nav">
+            <button id="prevStep" class="ghost">Retour</button>
+            <button id="nextStep" class="primary">Suivant</button>
+          </div>
+        </section>
+        <section class="stage">
+          <canvas id="scene" width="900" height="620"></canvas>
+          <div class="legend">
+            <span class="dot">*</span>
+            <span>Vue isometrique simplifiee</span>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
